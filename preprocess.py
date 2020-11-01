@@ -103,10 +103,6 @@ class BERTDataset(Dataset):
         self.input_ids = pad_sequence(self.input_ids, batch_first=True, padding_value=tokenizer.pad_token_id)
         self.token_type_ids = pad_sequence(self.token_type_ids, batch_first=True, padding_value=1)
         self.labels = pad_sequence(self.labels, batch_first=True, padding_value=-100)
-
-        print(self.input_ids.size())
-        print(self.token_type_ids.size())
-        print(self.labels.size())
         
     def vectorize(self, line, tokenizer):
         return tokenizer.encode(line)
@@ -147,10 +143,10 @@ if __name__ == "__main__":
     
     
     print("testing training")
-    optimizer = optim.Adam(model.parameters(), 0.01)
+    optimizer = optim.Adam(model.parameters(), 0.001)
     model = model.train()
     loss_fn = CrossEntropyLoss(ignore_index=-100)
-    scheduler = get_linear_schedule_with_warmup(optimizer, 2, 2)
+    scheduler = get_linear_schedule_with_warmup(optimizer, 4, 4)
     epochs = 2
     for epoch in range(epochs):
         for batch in tqdm(train_loader):
@@ -159,17 +155,6 @@ if __name__ == "__main__":
             token_type_ids = batch["token_type_ids"]
             labels = batch["labels"]
             next_sentence_label = batch["next_sentence_label"]
-
-            # print(bertTokenizer.decode(input_ids[0]), next_sentence_label[0])
-            # print(bertTokenizer.decode(labels[0]))
-
-            # print("RAW")
-            # print(input_ids[0])
-            # print(attention_mask[0])
-            # print(token_type_ids[0])
-            # print(labels[0])
-
-            # print("END")
             
             prediction_logits, seq_relationship_logits = model(
                 input_ids=input_ids,
