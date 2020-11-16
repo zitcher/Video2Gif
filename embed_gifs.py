@@ -8,11 +8,13 @@ from scipy import ndimage
 
 dict_path = "s3d_dict.npy"
 weight_path = "s3d_howto100m.pth"
-train_path = "../TGIF-Release-master/data/splits/train.txt"
+train_path = "./data/tumblr/splits/train.txt"
 tmp_path ="tmp.gif"
 save_path = "embeddings/"
 
 def file_to_embeddings(dict_path, weight_path, train_path, tmp_path, save_path):
+  with open(train_path) as f:
+    urls = f.read().splitlines()
     dict_path = Path(dict_path)
     weight_path = Path(weight_path)
     train_path = Path(train_path)
