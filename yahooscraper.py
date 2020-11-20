@@ -7,6 +7,10 @@ import sys
 from datetime import datetime
 import xml.etree.ElementTree as ElementTree
 from html import unescape
+import json
+import argparse
+
+basepath = '/users/zhoffman/Video2Gif/'
 
 def get_caption_from_segment(xml_captions, start, stop):
     segments = []
@@ -28,10 +32,11 @@ def download_video(vidid, start, stop, gif_title, index):
     url = f'https://youtube.com/watch?v={vidid}'
     youtube = pytube.YouTube(url)
 
-    path = "./data/yahoo/videos/" + str(index)
+    global basepath
+    path = basepath + "data/yahoo/videos/" + str(index)
 
-    if not os.path.exists("./data/yahoo/videos/" + str(index)):
-        os.mkdir("./data/yahoo/videos/" + str(index))
+    if not os.path.exists(basepath +  "data/yahoo/videos/" + str(index)):
+        os.mkdir(basepath + "data/yahoo/videos/" + str(index))
 
     # download correct
     youtube.streams.filter(res="360p").first().download(path, 'pos')
@@ -40,22 +45,24 @@ def download_video(vidid, start, stop, gif_title, index):
     os.rename(path + "/gif" + 'pos' + ".mp4", path + "/" + 'pos' + ".mp4")
 
     vid_length = stop - start
-    negstart = random.randint(0, int(youtube.length - vid_length - 1))
-    negstop = negstart + vid_length
+    neg_captions = ''
     if youtube.length > vid_length + 3:
+        negstart = random.randint(0, int(youtube.length - vid_length - 1))
+        negstop = negstart + vid_length
+
         # download negative example
         youtube.streams.filter(res="360p").first().download(path, 'neg')
         ffmpeg_extract_subclip(path + "/" + 'neg' + ".mp4", negstart, negstop, targetname=path + "/gif" + 'neg' + ".mp4")
         os.remove(path + "/" + 'neg' + ".mp4")
         os.rename(path + "/gif" + 'neg' + ".mp4", path + "/" + 'neg' + ".mp4")
 
-    # caption retrieval
+        if 'en' in youtube.captions:
+             neg_captions = get_caption_from_segment(youtube.captions['en'].xml_captions, negstart, negstop)
+
     pos_captions = ''
-    neg_captions = ''
     if 'en' in youtube.captions:
         pos_captions = get_caption_from_segment(youtube.captions['en'].xml_captions, start, stop)
-        if youtube.length > vid_length + 3:
-            neg_captions = get_caption_from_segment(youtube.captions['en'].xml_captions, negstart, negstop)
+           
 
     print('id', vidid)
     print('title', gif_title)
@@ -74,10 +81,27 @@ def download_video(vidid, start, stop, gif_title, index):
 
 if __name__ == "__main__":
     random.seed(datetime.now())
-    df = pd.read_csv('./data/yahoo/metadata/metadata.txt', sep=';\t')
+    df = pd.read_csv(basepath + 'data/yahoo/metadata/metadata.txt', sep=';\t')
 
+    parser = argparse.ArgumentParser(description='Download videos.')
+
+    parser.add_argument("-s", "--start", type=int, default=0,
+                    help="Index to start downloading")
+
+    parser.add_argument("-e", "--end", type=int, default=len(df.index),
+                help="Index to end downloading")
+
+    args = parser.parse_args()
+    start = args.start
+    stop = args.end
+
+    print("start", start, "end", stop)
+
+    df = df[start:stop]
+
+    total = len(df.index)
     for index, row in df.iterrows():
-        print(index / len(df))
+        print(index / total)
         for i in range(3):
             try:
                 download_video(
@@ -89,5 +113,11 @@ if __name__ == "__main__":
                 break
             except pytube.exceptions.RegexMatchError:
                 print("Unexpected error:", sys.exc_info()[0])
+            except json.decoder.JSONDecodeError:
+                print("Unexpected error:", sys.exc_info()[0])
             except pytube.exceptions.VideoPrivate:
                 break
+            except KeyboardInterrupt:
+                raise
+            except:
+                print("Failed on video", index, sys.exc_info()[0])
