@@ -1,19 +1,19 @@
 from torch.utils.data import Dataset, DataLoader
 import torch
-from transformers import BertTokenizer, BertForPreTraining
+from transformers import BertTokenizerFast, BertForPreTraining
 import random
 from torch.utils.data import DataLoader
 from torch.nn import CrossEntropyLoss
 from transformers import get_linear_schedule_with_warmup
 from torch import nn, optim
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from torch.nn.utils.rnn import pad_sequence
 
 
-def replaceEl(lst, oldval, newval):
+def replaceEl(lst, vals, newval):
     newlst = []
     for item in lst:
-        if item == oldval:
+        if item in vals:
             newlst.append(newval)
         else:
             newlst.append(item)
@@ -24,28 +24,22 @@ class BERTDataset(Dataset):
         """
         Expects a file of where each lines is a sentence of: word1, word2, ... wordk [SEP] vidtoken1, vidtoken2, vidtokenk
         """
-        vid_vocab = dict()
+        self.vid_vocab = dict()
+        self.vocab_vid = dict()
 
         # read the input file line by line and put the lines in a list.
         with open(input_file) as f:
             self.raw = f.read()
 
         sentences = self.raw.split('\n')
-        
-
-        # list of (query, response)
-        new_tokens = []
-        for line in sentences:
+        for line in tqdm(sentences):
             sentence_vids = line.split('[SEP]')
             vids = sentence_vids[1].strip().split(' ')
 
             for vid in vids:
-                if vid not in vid_vocab:
-                    vid_vocab[vid] = 1
-                    new_tokens.append(vid)
-
-        special_tokens_dict = {'additional_special_tokens': new_tokens}
-        tokenizer.add_special_tokens(special_tokens_dict)
+                if vid not in self.vid_vocab:
+                    self.vid_vocab[vid] = len(tokenizer) + len(self.vid_vocab)
+                    self.vocab_vid[self.vid_vocab[vid]] = vid
 
         # get dataset in a random order, impt for next sent prediction construction
         # since we use the next sentence in the list as the example of an incorrect next sentence prediction
@@ -57,23 +51,22 @@ class BERTDataset(Dataset):
         self.token_type_ids = [] # 0 for sent A, 1 for sent B
         self.labels = [] # -100 are ignored (masked), the loss is only computed for the tokens with labels in [0, ..., config.vocab_size]
         self.next_sentence_label = [] # Indices should be in [0, 1], 0 indicates sequence B is a continuation of sequence A
-        for i in range(len(sentences)):
+        for i in trange(len(sentences), desc='preprocessing'):
             # add a correct next sentence example
             line = sentences[i]
             linesplit = line.split('[SEP]')
+            linesplit = [
+                self.vectorize_line(linesplit[0].strip(), tokenizer),
+                self.vectorize_gif(linesplit[1].strip()) + [tokenizer.sep_token_id]
+            ]
             
-            
-            vector = self.vectorize(line, tokenizer)
+            vector = linesplit[0] + linesplit[1]
             self.input_ids.append(torch.tensor(vector))
-            self.lengths.append(len(vector))
+            self.lengths.append(torch.tensor(len(vector)))
             self.max_seq_len = max(self.max_seq_len, len(vector))
-            self.token_type_ids.append(torch.tensor(
-                ([0] * (len(self.vectorize(linesplit[0].strip(), tokenizer)))) + 
-                ([1] * (len(self.vectorize(linesplit[1].strip(), tokenizer)) - 1))
-            ))
+            self.token_type_ids.append(torch.tensor([0] * len(linesplit[0]) + [1] * len(linesplit[1])))
 
-            vector = replaceEl(vector, tokenizer.cls_token_id, -100)
-            vector = replaceEl(vector, tokenizer.sep_token_id, -100)
+            vector = replaceEl(vector, [tokenizer.cls_token_id, tokenizer.sep_token_id], -100)
             self.labels.append(torch.tensor(vector))
             self.next_sentence_label.append(torch.tensor([0]))
 
@@ -85,27 +78,41 @@ class BERTDataset(Dataset):
                 nextline = sentences[0]
 
             nextlinesplit = nextline.split('[SEP]')
+            nextlinesplit = [
+                linesplit[0],
+                self.vectorize_gif(nextlinesplit[1].strip()) + [tokenizer.sep_token_id]
+            ]
 
-            inccorrect_next_sent = linesplit[0].strip() + ' [SEP] ' + nextlinesplit[1].strip()
-            vector = self.vectorize(inccorrect_next_sent, tokenizer)
+            vector = nextlinesplit[0] + nextlinesplit[1]
             self.input_ids.append(torch.tensor(vector))
-            self.lengths.append(len(vector))
+            self.lengths.append(torch.tensor(len(vector)))
             self.max_seq_len = max(self.max_seq_len, len(vector))
-            self.token_type_ids.append(torch.tensor(
-                ([0] * (len(self.vectorize(linesplit[0].strip(), tokenizer)))) + 
-                ([1] * (len(self.vectorize(nextlinesplit[1].strip(), tokenizer)) - 1))
-            ))
-            vector = replaceEl(vector, tokenizer.cls_token_id, -100)
-            vector = replaceEl(vector, tokenizer.sep_token_id, -100)
+            self.token_type_ids.append(torch.tensor([0] * len(nextlinesplit[0]) + [1] * len(nextlinesplit[1])))
+            vector = replaceEl(vector, [tokenizer.cls_token_id, tokenizer.sep_token_id], -100)
             self.labels.append(torch.tensor(vector))
             self.next_sentence_label.append(torch.tensor([1]))
 
         self.input_ids = pad_sequence(self.input_ids, batch_first=True, padding_value=tokenizer.pad_token_id)
         self.token_type_ids = pad_sequence(self.token_type_ids, batch_first=True, padding_value=1)
         self.labels = pad_sequence(self.labels, batch_first=True, padding_value=-100)
-        
-    def vectorize(self, line, tokenizer):
-        return tokenizer.encode(line)
+    
+    def vectorize_gif(self, gif):
+        encode = []
+        for tok in gif.split(' '):
+            encode.append(self.vid_vocab[tok])
+        return encode
+
+    def vectorize_line(self, line, tokenizer):
+        encode = tokenizer.encode(line)
+        return encode
+
+    def decode(self, vector, tokenizer):
+        sep = vector.index(tokenizer.sep_token_id)
+        gifs = ''
+        for vid in vector[sep + 1:len(vector) - 1]:
+            gifs += ' ' + self.vocab_vid[vid]
+
+        return tokenizer.decode(vector[:sep + 1]) + gifs
 
     def __len__(self):
         """
@@ -130,14 +137,14 @@ class BERTDataset(Dataset):
         return item
 
 if __name__ == "__main__":
-    bertTokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    bertTokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
 
     print("loading dataset")
     train_dataset = BERTDataset('./test.tsv', bertTokenizer)
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
     
     print("loading modle")
-    vocab_size = len(bertTokenizer)
+    vocab_size = len(bertTokenizer) + len(train_dataset.vid_vocab)
     model = BertForPreTraining.from_pretrained('bert-base-uncased')
     model.resize_token_embeddings(vocab_size)
     
@@ -169,5 +176,5 @@ if __name__ == "__main__":
             optimizer.step()
             scheduler.step()
 
-            perplexity = torch.exp(total_loss).item()
-            print("perplexity:", perplexity)
+            print("masked_lm_loss:", torch.exp(masked_lm_loss).item())
+            print("next_sentence_loss:", torch.exp(next_sentence_loss).item())

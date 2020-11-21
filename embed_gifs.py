@@ -7,7 +7,7 @@ import numpy as np
 from scipy import ndimage
 
 dict_path = "s3d_dict.npy"
-weight_path = "s3d_howto100m.pth"
+weight_path = "data/s3d_howto100m.pth"
 train_path = "./data/tumblr/splits/train.txt"
 tmp_path ="tmp.gif"
 save_path = "embeddings/"
