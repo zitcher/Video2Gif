@@ -18,7 +18,7 @@ def read_video(path):
     frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    buf = np.empty((frameCount // 3  + 1, frameHeight, frameWidth, 3), np.dtype('uint8'))
+    buf = np.empty((frameCount // 3  + 1, frameHeight, frameWidth, 3), np.dtype('float32'))
 
     fc = 0
     ret = True
@@ -33,32 +33,39 @@ def read_video(path):
         
         buf[fc // 3] = frame
         fc += 1
+    buf = buf / 255.0
+
+    ## all dims must be divisible by 2 for s3dg
+    if frameHeight % 2 == 1:
+        buf = buf[:,:-1,:,:]
+    if frameWidth % 2 == 1:
+        buf = buf[:,:,:-1,:]
+    return buf / 255.0
     
-    return buf
-    
-def nearest_crt(embedding, crts):
-    print(crts.shape, embedding.shape)
-    
-    dists = scipy.spatial.distance.cdist(np.expand_dims(embedding, 0), crts)
+def nearest_crt(embedding, crts, row_to_crts):
+    dists = scipy.spatial.distance.cdist(embedding, crts)
     dists = np.squeeze(dists)
-
-    print(dists.shape)
-
-
-    
-    return np.argmin(dists)
+    amin = np.argmin(dists)
+    return row_to_crts[amin]
 
 
-def video_tokenizer(video, net, window, crts):
+def video_tokenizer(video, net, window, crts, row_to_crts):
     tokens = ''
     for i in range(0, video.shape[0], window):
         vid_window = video[i:i+window]
+        if vid_window.shape[0] < 10:
+            continue
+        
+        ## all dims must be divisible by 2 for s3dg
+        if vid_window.shape[0] % 2 == 1:
+            vid_window=vid_window[:-1,:,:,:]
+
         # transform (frameCount, frameHeight, frameWidth, channels) to
         # (channels, frameCount, frameHeight, frameWidth)
         reindex = np.moveaxis(vid_window, 3, 0)
         single_batch = torch.tensor(reindex).unsqueeze(0).double()
         res = net(single_batch)['video_embedding'].detach().numpy()
-        tokens += " v" + str(nearest_crt(res, crts))
+        tokens += " v" + str(nearest_crt(res, crts, row_to_crts))
     return tokens.strip()
     
 
@@ -70,11 +77,14 @@ if __name__ == "__main__":
     youtube_dataset = {'sequence': [], 'label': []}
     
     crts_dict = np.load('centers.npy', allow_pickle=True).item()
-
     crts = np.zeros((len(crts_dict), 512))
+    row_to_crts = dict()
 
+    index = 0
     for key, val in crts_dict.items():
-        crts[key] = val
+        crts[index] = val
+        row_to_crts[index] = key
+        index +=1
 
     net = S3D(dict_path, 512)
     net.load_state_dict(torch.load(weight_path))
@@ -99,14 +109,14 @@ if __name__ == "__main__":
             pos_video = read_video(pos_path)
             neg_video = read_video(neg_path)
 
-            tokens_pos = video_tokenizer(pos_video, net, 32, crts)
+            tokens_pos = video_tokenizer(pos_video, net, 32, crts, row_to_crts)
             youtube_dataset['sequence'].append(title + ' [SEP] ' + tokens_pos)
             youtube_dataset['label'].append(1)
 
 
-            tokens_ned = video_tokenizer(neg_video, net, 32, crts)
+            tokens_ned = video_tokenizer(neg_video, net, 32, crts, row_to_crts)
             youtube_dataset['sequence'].append(title + ' [SEP] ' + tokens_ned)
-            youtube_dataset['label'].append(2)
+            youtube_dataset['label'].append(0)
 
             print(youtube_dataset)
 
