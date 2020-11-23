@@ -8,6 +8,7 @@ from scipy import ndimage
 import os
 import cv2
 import pandas as pd
+import scipy.spatial
 
 def read_video(path):
     if not os.path.exists(path):
@@ -36,15 +37,16 @@ def read_video(path):
     return buf
     
 def nearest_crt(embedding, crts):
-    nearest = None
-    mindist = None
-    for key, value in crts.items():
-        dst = np.linalg.norm(embedding-value)
-        if nearest is None or dst < mindist:
-            nearest = key
-            mindist = value
+    print(crts.shape, embedding.shape)
     
-    return nearest
+    dists = scipy.spatial.distance.cdist(np.expand_dims(embedding, 0), crts)
+    dists = np.squeeze(dists)
+
+    print(dists.shape)
+
+
+    
+    return np.argmin(dists)
 
 
 def video_tokenizer(video, net, window, crts):
@@ -66,8 +68,14 @@ if __name__ == "__main__":
     video_path = "./data/yahoo/videos/half_videos"
     save_path = "youtube.txt"
     youtube_dataset = {'sequence': [], 'label': []}
+    
+    crts_dict = np.load('centers.npy', allow_pickle=True).item()
 
-    crts = np.load('centers.npy', allow_pickle=True).item()
+    crts = np.zeros((len(crts_dict), 512))
+
+    for key, val in crts_dict.items():
+        crts[key] = val
+
     net = S3D(dict_path, 512)
     net.load_state_dict(torch.load(weight_path))
     net.eval()
