@@ -1,4 +1,4 @@
-import torch as th
+import torch
 from s3dg import S3D
 from pathlib import Path
 from PIL import Image, ImageSequence
@@ -10,21 +10,30 @@ import cv2
 import pandas as pd
 
 def read_video(path):
+    if not os.path.exists(path):
+        print("DOESN'T EXIST", path)
     cap = cv2.VideoCapture(path)
     frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    buf = np.empty((frameCount, frameHeight, frameWidth, 3), np.dtype('uint8'))
+    buf = np.empty((frameCount // 3  + 1, frameHeight, frameWidth, 3), np.dtype('uint8'))
 
     fc = 0
     ret = True
 
     while (fc < frameCount and ret):
-        ret, buf[fc] = cap.read()
+        if fc % 3 != 0:
+            fc += 1
+            continue
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        buf[fc // 3] = frame
         fc += 1
     
-    return cap
+    return buf
     
 def nearest_crt(embedding, crts):
     nearest = None
@@ -45,7 +54,7 @@ def video_tokenizer(video, net, window, crts):
         # transform (frameCount, frameHeight, frameWidth, channels) to
         # (channels, frameCount, frameHeight, frameWidth)
         reindex = np.moveaxis(vid_window, 3, 0)
-        single_batch = np.expand_dims(reindex, 0)
+        single_batch = torch.tensor(reindex).unsqueeze(0).double()
         res = net(single_batch)['video_embedding'].detach().numpy()
         tokens += " v" + str(nearest_crt(res, crts))
     return tokens.strip()
@@ -58,11 +67,11 @@ if __name__ == "__main__":
     save_path = "youtube.txt"
     youtube_dataset = {'sequence': [], 'label': []}
 
-    crts = np.load('centers.npy', allow_pickle=True)
+    crts = np.load('centers.npy', allow_pickle=True).item()
     net = S3D(dict_path, 512)
-    net.load_state_dict(th.load(weight_path))
+    net.load_state_dict(torch.load(weight_path))
     net.eval()
-    with th.no_grad():
+    with torch.no_grad():
         net = net.double()
         files = os.listdir(video_path)
         for dir in files:
@@ -90,6 +99,8 @@ if __name__ == "__main__":
             tokens_ned = video_tokenizer(neg_video, net, 32, crts)
             youtube_dataset['sequence'].append(title + ' [SEP] ' + tokens_ned)
             youtube_dataset['label'].append(2)
+
+            print(youtube_dataset)
 
     datset = pd.DataFrame(data=youtube_dataset)
     dataset.to_csv('./youtube_dataset.csv')
