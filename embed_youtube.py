@@ -9,6 +9,9 @@ import os
 import cv2
 import pandas as pd
 import scipy.spatial
+from tqdm import tqdm
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def read_video(path):
     if not os.path.exists(path):
@@ -18,28 +21,29 @@ def read_video(path):
     frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    buf = np.empty((frameCount // 3  + 1, frameHeight, frameWidth, 3), np.dtype('float32'))
+    skip = 6
+    buf = np.empty((frameCount // skip  + 1, frameHeight, frameWidth, 3), np.dtype('float32'))
 
     fc = 0
     ret = True
 
     while (fc < frameCount and ret):
-        if fc % 3 != 0:
+        if fc % skip != 0:
             fc += 1
             continue
         ret, frame = cap.read()
         if not ret:
             break
         
-        buf[fc // 3] = frame
+        buf[fc // skip] = frame
         fc += 1
-    buf = buf / 255.0
 
     ## all dims must be divisible by 2 for s3dg
     if frameHeight % 2 == 1:
         buf = buf[:,:-1,:,:]
     if frameWidth % 2 == 1:
         buf = buf[:,:,:-1,:]
+
     return buf / 255.0
     
 def nearest_crt(embedding, crts, row_to_crts):
@@ -63,17 +67,20 @@ def video_tokenizer(video, net, window, crts, row_to_crts):
         # transform (frameCount, frameHeight, frameWidth, channels) to
         # (channels, frameCount, frameHeight, frameWidth)
         reindex = np.moveaxis(vid_window, 3, 0)
-        single_batch = torch.tensor(reindex).unsqueeze(0).double()
-        res = net(single_batch)['video_embedding'].detach().numpy()
+        single_batch = torch.tensor(reindex).unsqueeze(0).double().to(device)
+        res = net(single_batch)['video_embedding'].detach().cpu().numpy()
+
         tokens += " v" + str(nearest_crt(res, crts, row_to_crts))
     return tokens.strip()
     
 
 if __name__ == "__main__":
+    print(device)
     dict_path = "./data/s3dg/s3d_dict.npy"
     weight_path = "./data/s3dg/s3d_howto100m.pth"
     video_path = "./data/yahoo/videos/half_videos"
     save_path = "youtube.txt"
+    window = 16
     youtube_dataset = {'sequence': [], 'label': []}
     
     crts_dict = np.load('centers.npy', allow_pickle=True).item()
@@ -86,13 +93,13 @@ if __name__ == "__main__":
         row_to_crts[index] = key
         index +=1
 
-    net = S3D(dict_path, 512)
+    net = S3D(dict_path, 512).to(device)
     net.load_state_dict(torch.load(weight_path))
     net.eval()
     with torch.no_grad():
         net = net.double()
         files = os.listdir(video_path)
-        for dir in files:
+        for dir in tqdm(files):
             dir_path = os.path.join(video_path, dir)
             if not os.path.isdir(os.path.join(video_path, dir)):
                 continue
@@ -105,20 +112,20 @@ if __name__ == "__main__":
 
             if not os.path.exists(neg_path):
                 continue
-
+            
             pos_video = read_video(pos_path)
             neg_video = read_video(neg_path)
 
-            tokens_pos = video_tokenizer(pos_video, net, 32, crts, row_to_crts)
-            youtube_dataset['sequence'].append(title + ' [SEP] ' + tokens_pos)
+            tokens_pos = video_tokenizer(pos_video, net, window, crts, row_to_crts)
+            print("pos", str(title) + ' [SEP] ' + tokens_pos)
+            youtube_dataset['sequence'].append(str(title) + ' [SEP] ' + tokens_pos)
             youtube_dataset['label'].append(1)
 
 
-            tokens_ned = video_tokenizer(neg_video, net, 32, crts, row_to_crts)
-            youtube_dataset['sequence'].append(title + ' [SEP] ' + tokens_ned)
+            tokens_neg = video_tokenizer(neg_video, net, window, crts, row_to_crts)
+            print("neg", str(title) + ' [SEP] ' + tokens_neg)
+            youtube_dataset['sequence'].append(str(title) + ' [SEP] ' + tokens_neg)
             youtube_dataset['label'].append(0)
-
-            print(youtube_dataset)
 
     datset = pd.DataFrame(data=youtube_dataset)
     dataset.to_csv('./youtube_dataset.csv')
