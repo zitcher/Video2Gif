@@ -16,7 +16,11 @@ loadepoch = 0
 # basepath = '/users/zhoffman/Video2Gif'
 basepath = '.'
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 if __name__ == "__main__":
+    print("device", device)
+    print("loading gpt2 tokenizer")
     gpt2Tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
 
     print("loading dataset")
@@ -32,7 +36,7 @@ if __name__ == "__main__":
         epoch = 0
         model.load_state_dict(torch.load(basepath + '/checkpoints/{}.cpt'.format(loadepoch)))
     
-    model = model.cuda()
+    model = model.to(device)
     print("testing training")
     optimizer = optim.Adam(model.parameters(), 0.001)
     model = model.train()
@@ -42,9 +46,9 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         losses = []
         for batch in tqdm(train_loader):
-            input_ids = batch["input_ids"].cuda()
-            mask = batch["mask"].cuda()
-            labels = batch["labels"].cuda()
+            input_ids = batch["input_ids"].to(device)
+            mask = batch["mask"].to(device)
+            labels = batch["labels"].to(device)
 
             out = model(
                 input_ids=input_ids,
