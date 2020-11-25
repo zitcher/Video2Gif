@@ -59,7 +59,7 @@ if __name__ == "__main__":
             loss = loss_fn(logits.permute(0, 2, 1), labels)
             loss.backward()
             optimizer.step()
-
+            # print("Loss", torch.exp(loss).item())
             losses.append(torch.exp(loss).item())
         print("epoch", epoch, "perplexity:", np.mean(losses))
 
