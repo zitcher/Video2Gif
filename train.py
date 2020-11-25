@@ -27,7 +27,7 @@ if __name__ == "__main__":
     train_dataset = GPT2Dataset('./training.tsv', gpt2Tokenizer)
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     
-    print("loading modle")
+    print("loading model")
     vocab_size = len(gpt2Tokenizer) + len(train_dataset.vid_vocab)
     model = GPT2LMHeadModel.from_pretrained('gpt2', return_dict=True)
     model.resize_token_embeddings(vocab_size)
@@ -59,7 +59,7 @@ if __name__ == "__main__":
             loss = loss_fn(logits.permute(0, 2, 1), labels)
             loss.backward()
             optimizer.step()
-            # print("Loss", torch.exp(loss).item())
+            print("Loss", torch.exp(loss).item())
             losses.append(torch.exp(loss).item())
         print("epoch", epoch, "perplexity:", np.mean(losses))
 

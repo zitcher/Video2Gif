@@ -9,7 +9,8 @@ from torch import nn, optim
 from tqdm import tqdm, trange
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
-
+import os
+import pickle
 
 def replaceEl(lst, vals, newval):
     newlst = []
@@ -20,6 +21,14 @@ def replaceEl(lst, vals, newval):
             newlst.append(item)
     return newlst
 
+def save_obj(obj, name):
+    with open('./data/'+ name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name):
+    with open('./data/' + name + '.pkl', 'rb') as f:
+        return pickle.load(f)
+
 class GPT2Dataset(Dataset):
     def __init__(self, input_file, tokenizer):
         """
@@ -27,6 +36,12 @@ class GPT2Dataset(Dataset):
         """
         self.vid_vocab = dict()
         self.vocab_vid = dict()
+        loaded = False
+        if os.path.exists("./data/vid_vocab.pkl") and os.path.exists("./data/vocab_vid.pkl"):
+            print("loading vocab")
+            self.vid_vocab = load_obj("vid_vocab")
+            self.vocab_vid = load_obj("vocab_vid")
+            loaded = True
 
         # read the input file line by line and put the lines in a list.
         with open(input_file) as f:
@@ -37,14 +52,19 @@ class GPT2Dataset(Dataset):
             sentence_vids = line.split('[SEP]')
             vids = sentence_vids[1].strip().split(' ')
 
-            if '[SEP]' not in self.vid_vocab:
-                    self.vid_vocab['[SEP]'] = len(tokenizer) + len(self.vid_vocab)
-                    self.vocab_vid[self.vid_vocab['[SEP]']] = '[SEP]'
+            if not loaded:
+                if '[SEP]' not in self.vid_vocab:
+                        self.vid_vocab['[SEP]'] = len(tokenizer) + len(self.vid_vocab)
+                        self.vocab_vid[self.vid_vocab['[SEP]']] = '[SEP]'
 
-            for vid in vids:
-                if vid not in self.vid_vocab:
-                    self.vid_vocab[vid] = len(tokenizer) + len(self.vid_vocab)
-                    self.vocab_vid[self.vid_vocab[vid]] = vid
+                for vid in vids:
+                    if vid not in self.vid_vocab:
+                        self.vid_vocab[vid] = len(tokenizer) + len(self.vid_vocab)
+                        self.vocab_vid[self.vid_vocab[vid]] = vid
+        if not loaded:
+            print("saving vocab")
+            save_obj(self.vid_vocab, "vid_vocab")
+            save_obj(self.vocab_vid, "vocab_vid")
 
         self.input_ids = []
         self.mask = [] # Mask to avoid performing attention on padding token indices. 1 for tokens that are not masked, 0 for tokens that are masked.
