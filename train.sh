@@ -2,7 +2,7 @@
 #SBATCH --job-name=train1
 #SBATCH --output=train1.out
 
-#SBATCH --time=12:00:00
+#SBATCH --time=36:00:00
 
 #SBATCH -n 1
 #SBATCH -p gpu --gres=gpu:1
