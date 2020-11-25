@@ -64,11 +64,13 @@ for i in range(len(file_list)):
 
 data = np.concatenate(arrs, axis=0)
 print(data.shape)
-res, ctrs = hierarchical_clustering(data, d=4, k=9)
-print(np.unique(res))
-np.save('centers.npy', ctrs)
+res = np.load('res.npy') #, ctrs = hierarchical_clustering(data, d=4, k=9)
+print(res.shape)
+#np.save('res.npy', res)
 url_map = dict()
 ct = 0
+
+id_to_res = dict()
 
 for k in range(5):
   with open('correspondences' + str(k) + '.txt','r') as f:
@@ -76,35 +78,62 @@ for k in range(5):
   
     for j in range(len(urls)-1):
       if j == 0:
-        url_map[urls[j]] = [0]
+        url_map[urls[j]] = [ct]
         ct += 1
       else:
+        idx = urls[j].split('h')[0]
+        print(idx)
         cur_url = urls[j][len(urls[j].split('h')[0]):]
         if cur_url in url_map:
           url_map[cur_url].append(ct)
+          id_to_res[int(idx)] = ct
           ct += 1
         else:
           url_map[cur_url] = [ct]
           ct += 1
+          id_to_res[int(idx)] = ct
 
 print(ct)
-cols = ['URL', 'CAPTION']
-caps = pd.read_csv('../TGIF-Release-master/data/tgif-v1.0.tsv', names=cols, sep='\t')
+inv_url_map = dict()
+ct = 0
+for k,v in url_map.items():
+  # k is url, v is number
+  it = 0
+  v.sort()
+  for idx in v:
+    inv_url_map[idx] = (k, it)
+    ct += 1
+    it += 1
+    print(ct)
 
-out = open('training1.tsv', 'w')
+map_tokens_to_gifs = dict()
+for i in range(res.shape[0]):
+  if res[i] in map_tokens_to_gifs:
+    map_tokens_to_gifs[res[i]].append(inv_url_map[i])
+  else:
+    map_tokens_to_gifs[res[i]] = [inv_url_map[i]]
+
+print(map_tokens_to_gifs[6092])
+np.save('tks_to_gifs.npy', map_tokens_to_gifs)
+
+print('done')
+#cols = ['URL', 'CAPTION']
+#caps = pd.read_csv('../TGIF-Release-master/data/tgif-v1.0.tsv', names=cols, sep='\t')
+#
+#out = open('training1.tsv', 'w')
 
 # Create training file
-for index, row in caps.iterrows():
-  clusters = []
-  url = row['URL']
-  caption = row['CAPTION']
-  if url in url_map:
-    clusters = url_map[url]
-    for i in range(len(clusters)):
-      clusters[i] = res[clusters[i]]
-    out_str = (caption + " [SEP]")
-    for i in range(len(clusters)):
-      out_str += " v" + str(clusters[i])
-    out.write(out_str + '\n')
-
-out.close()
+#for index, row in caps.iterrows():
+#  clusters = []
+#  url = row['URL']
+#  caption = row['CAPTION']
+#  if url in url_map:
+#    clusters = url_map[url]
+#    for i in range(len(clusters)):
+#      clusters[i] = res[clusters[i]]
+#    out_str = (caption + " [SEP]")
+#    for i in range(len(clusters)):
+#      out_str += " v" + str(clusters[i])
+#    out.write(out_str + '\n')
+#
+#out.close()
