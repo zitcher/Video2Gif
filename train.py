@@ -38,11 +38,10 @@ if __name__ == "__main__":
     
     model = model.to(device)
     print("testing training")
-    optimizer = optim.Adam(model.parameters(), 0.001)
+    optimizer = optim.Adam(model.parameters(), 0.0005)
     model = model.train()
     loss_fn = CrossEntropyLoss(ignore_index=-100)
-    scheduler = get_linear_schedule_with_warmup(optimizer, 5, 100)
-    epochs = 100
+    epochs = 101
     for epoch in range(epochs):
         losses = []
         for batch in tqdm(train_loader):
@@ -60,10 +59,8 @@ if __name__ == "__main__":
             loss = loss_fn(logits.permute(0, 2, 1), labels)
             loss.backward()
             optimizer.step()
-            scheduler.step()
 
             losses.append(torch.exp(loss).item())
-            scheduler.step()
         print("epoch", epoch, "perplexity:", np.mean(losses))
 
         if epoch % 5 == 0:

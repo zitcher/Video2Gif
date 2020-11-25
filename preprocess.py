@@ -58,9 +58,9 @@ class GPT2Dataset(Dataset):
                 [self.vid_vocab['[SEP]']] + self.vectorize_gif(linesplit[1].strip())
             ]
             
-            vector = linesplit[0] + linesplit[1]
+            vector = linesplit[0] + linesplit[1] + [gpt2Tokenizer.eos_token_id]
 
-            # print(line, vector, self.decode(vector, tokenizer))
+            print(line, vector, self.decode(vector, tokenizer))
             self.input_ids.append(torch.tensor(vector))
             self.labels.append(torch.tensor(vector))
             self.mask.append(torch.tensor([1] * len(vector)))
@@ -82,7 +82,7 @@ class GPT2Dataset(Dataset):
     def decode(self, vector, tokenizer):
         sep = vector.index(self.vid_vocab['[SEP]'])
         gifs = ''
-        for vid in vector[sep + 1:len(vector)]:
+        for vid in vector[sep + 1:len(vector) - 1]:
             gifs += ' ' + self.vocab_vid[vid]
 
         return tokenizer.decode(vector[:sep + 1]) + gifs
