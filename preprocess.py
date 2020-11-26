@@ -50,6 +50,8 @@ class GPT2Dataset(Dataset):
         sentences = self.raw.split('\n')
         for line in tqdm(sentences):
             sentence_vids = line.split('[SEP]')
+            if (len(sentence_vids) < 2):
+                print("LINE", line)
             vids = sentence_vids[1].strip().split(' ')
 
             if not loaded:
@@ -74,15 +76,15 @@ class GPT2Dataset(Dataset):
             line = sentences[i]
             linesplit = line.split('[SEP]')
             linesplit = [
-                self.vectorize_line(linesplit[0].strip(), tokenizer),
-                [self.vid_vocab['[SEP]']] + self.vectorize_gif(linesplit[1].strip())
+                self.vectorize_line(linesplit[0].strip(), tokenizer) + [self.vid_vocab['[SEP]']],
+                self.vectorize_gif(linesplit[1].strip())
             ]
             
             vector = linesplit[0] + linesplit[1] + [tokenizer.eos_token_id]
 
             # print(line, vector, self.decode(vector, tokenizer))
             self.input_ids.append(torch.tensor(vector))
-            self.labels.append(torch.tensor(vector))
+            self.labels.append(torch.tensor([-100] *  len(linesplit[0]) + linesplit[1] + [tokenizer.eos_token_id]))
             self.mask.append(torch.tensor([1] * len(vector)))
 
         self.input_ids = pad_sequence(self.input_ids, batch_first=True, padding_value=0)

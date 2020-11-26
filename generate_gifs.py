@@ -10,7 +10,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 basepath = '.'
 
 def decode(vector, tokenizer, vid_vocab, vocab_vid):
-    sep = vector.index(vid_vocab['[SEP]'])
+    sep = vector.index(vid_vocab['[SEP]']) if vid_vocab['[SEP]'] in vector else len(vector)
     gifs = ''
     for vid in vector[sep:len(vector)]:
         if vid in vocab_vid:
@@ -60,6 +60,7 @@ def sentence_to_tokens(sentence, model, tokenizer, vid_vocab, vocab_vid):
         current_sentence.append(next_word)
         model_in = torch.tensor([current_sentence]).to(device)
 
+        print(decode(torch.argmax(logits, dim=2).tolist()[0], tokenizer, vid_vocab, vocab_vid))
         print(decode(current_sentence, tokenizer, vid_vocab, vocab_vid))
     print(gif)
     return gif
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(basepath + '/checkpoints/{}.cpt'.format('100')))
 
     line = sentence_to_tokens(
-        "A panda sits on a log", 
+        "Where are the", 
         model, 
         gpt2Tokenizer, 
         vid_vocab, 
