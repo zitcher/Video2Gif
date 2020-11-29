@@ -134,3 +134,6 @@ dmypy.json
 # data
 /data
 /checkpoints
+*.out
+/embeddings2
+/embeddings3

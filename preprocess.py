@@ -2,7 +2,6 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 from transformers import GPT2TokenizerFast, GPT2LMHeadModel
 import random
-from torch.utils.data import DataLoader
 from torch.nn import CrossEntropyLoss
 from transformers import get_linear_schedule_with_warmup
 from torch import nn, optim
