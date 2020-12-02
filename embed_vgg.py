@@ -25,7 +25,7 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
     #weight_path = Path(weight_path)
     train_path = Path(train_path)
     tmp_path = Path('tmp' + str(section) + '.gif')
-    save_path = 'vgg_embeddings/'
+    save_path = 'vgg_embeddings2/'
     text_path = Path('vgg_correspondences' + str(section) + '.txt')
     net = VGG16(weights='imagenet', include_top=False) #S3D(dict_path, 512)
     #net.load_state_dict(th.load(weight_path))
@@ -52,31 +52,36 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
           
           frames = np.array([np.array(frame.copy().convert('RGB').getdata(), dtype=np.uint8).reshape(frame.size[1], frame.size[0], 3) for frame in ImageSequence.Iterator(gif)])
           gif.close()
-          frames = (np.reshape(frames, (1, 3, frames.shape[0], frames.shape[2], frames.shape[1]))) #/ 255.0
+          #frames = (np.reshape(frames, (1, 3, frames.shape[0], frames.shape[1], frames.shape[2]))) #/ 255.0
+          #print(frames.shape)
           #frames = th.from_numpy(frames).detach().double()
-          if frames.shape[2] % 2 == 1:
-            frames = frames[:, :, :-1, :, :]
-          if frames.shape[3] % 2 == 1:
-            frames = frames[:,:,:,:-1,:]
-          if frames.shape[4] % 2 == 1:
-            frames = frames[:,:,:,:,:-1]
+          #if frames.shape[2] % 2 == 1:
+          #  frames = frames[:, :, :-1, :, :]
+          #if frames.shape[3] % 2 == 1:
+          #  frames = frames[:,:,:,:-1,:]
+          #if frames.shape[4] % 2 == 1:
+          #  frames = frames[:,:,:,:,:-1]
 
-          for j in range((frames.shape[2] // 32)+1):
+          for j in range((frames.shape[0] // 32)+1):
             #inp = frames[:,:,j*32:min((j+1)*32, frames.shape[2]),:,:]
-            inp = frames[:,:,j*32:min((j+1)*32, frames.shape[2]),:,:]
-            ids = np.random.randint(min((j+1)*32, inp.shape[2]), size=5)
-            if inp.shape[2] >= 4:
-              inp = inp[:,:,ids,:,:]
+            inp = frames[j*32:min((j+1)*32, frames.shape[0]), :, :, :]
+            ids = np.random.randint(min((j+1)*32, inp.shape[0]), size=5)
+            if inp.shape[0] >= 4:
+              inp = inp[ids, :,:,:]
               inp = np.squeeze(inp)
-              inp = np.reshape(inp, (inp.shape[1],inp.shape[2], inp.shape[3], inp.shape[0]))
+              print(inp.shape)
+              #inp = np.reshape(inp, (inp.shape[1],inp.shape[2], inp.shape[3], inp.shape[0]))
               res_inp = np.zeros((5,224,224,3))
               for m in range(5):
                 t = inp[m,:,:,:]
+                #print(t.shape)
                 t = Image.fromarray(np.uint8(t))
                 t = t.resize((224,224))
+                # For debugging
+                # t.show()
                 res_inp[m] = np.array(t)
               inp = preprocess_input(res_inp)
-              if inp.shape[2] != 0:
+              if inp.shape[0] != 0:
                 inp = net.predict(inp) 
                 # Take average over the output features to save space
                 inp = np.mean(inp, axis=0)
@@ -102,4 +107,4 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
       embed = np.zeros((5000, 512*7*7))
 
 
-file_to_embeddings(4, dict_path, weight_path, train_path)
+file_to_embeddings(0, dict_path, weight_path, train_path)
