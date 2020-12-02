@@ -1,11 +1,11 @@
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
-from tensorflow.keras.applications import ResNet101
-from tensorflow.keras.applications.resnet import preprocess_input
+from tensorflow.keras.applications.resnet import ResNet101, preprocess_input
 import requests
 from PIL import Image, ImageSequence
 import numpy as np
 import math 
+from array2gif import write_gif
 
 if __name__ == "__main__":
     urls = [
@@ -27,10 +27,9 @@ if __name__ == "__main__":
             sampled_frames = np.array([frames[i] for i in range(step // 2, len(frames), step)])
             inp = tf.image.resize(preprocess_input(sampled_frames), [244, 244], antialias=True)
             inp = net.predict(inp)
-            inp = np.mean(inp, axis=0)
             embeddings.append(inp.flatten())
 
-    print(np.linalg.norm(embeddings[0] - embeddings[1]), np.linalg.norm(embeddings[1] - embeddings[2]))
+    print(np.linalg.norm(embeddings[0] - embeddings[1]), np.linalg.norm(embeddings[0] - embeddings[2]))
 
             
         
