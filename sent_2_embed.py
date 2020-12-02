@@ -50,18 +50,14 @@ def get_embed_from_url(url):
         return embeds
 def get_embed_dict():
     # Hardcode the saved embeddings.
-    file_list = ['2982.npy', '5957.npy', '8947.npy', '11913.npy', '14871.npy', '15999.npy', '19026.npy', '22024.npy', '24980.npy', '27932.npy',
-    '30922.npy', '31999.npy', '34924.npy', '37886.npy', '40937.npy', '43916.npy', '46884.npy', '47999.npy', '50916.npy', '53917.npy', '56945.npy',
-    '59930.npy', '62918.npy', '63999.npy', '66982.npy', '70012.npy', '73028.npy', '76025.npy', '78946.npy', '79999.npy']
-
+    file_list = ['3069.npy', '6129.npy', '9201.npy', '12240.npy', '15272.npy', '15999.npy', '19118.npy', '22200.npy', '25245.npy', '28305.npy',
+    '31398.npy', '31999.npy', '35010.npy', '38063.npy', '41239.npy', '44290.npy', '47333.npy', '47999.npy', '51003.npy', '54089.npy', '57194.npy',
+    '60246.npy', '63304.npy', '63999.npy', '67064.npy', '70193.npy', '73325.npy', '76381.npy', '79403.npy', '79999.npy']
     arrs = [] 
 
     #This is where things can get memory heavy
     for i in range(len(file_list)):
-        if i < 18 or i > 23:
-            inp = np.load('./embeddings2/' + file_list[i])
-        else:
-            inp = np.load('./embeddings3/' + file_list[i])
+        inp = np.load('vgg_embeddings/' + file_list[i])
 
         if file_list[i] in ['15999.npy', '31999.npy', '47999.npy', '63999.npy', '79999.npy']:
             for j in range(inp.shape[0]):
