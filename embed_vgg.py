@@ -25,9 +25,9 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
     #weight_path = Path(weight_path)
     train_path = Path(train_path)
     tmp_path = Path('tmp' + str(section) + '.gif')
-    save_path = Path('vgg_embeddings')
+    save_path = 'vgg_embeddings/'
     text_path = Path('vgg_correspondences' + str(section) + '.txt')
-    net = VGG16(weights='imagenet') #S3D(dict_path, 512)
+    net = VGG16(weights='imagenet', include_top=False) #S3D(dict_path, 512)
     #net.load_state_dict(th.load(weight_path))
     #net.eval()
     #with th.no_grad():
@@ -35,7 +35,7 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
     with open(train_path) as f:
         urls = f.read().splitlines()
 
-    embed = np.zeros((5000, 5000))
+    embed = np.zeros((5000, 512*7*7))
     cnt = 0
     size = len(urls)
   
@@ -77,7 +77,10 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
                 res_inp[m] = np.array(t)
               inp = preprocess_input(res_inp)
               if inp.shape[2] != 0:
-                inp = net.predict(inp) # Should spit out probabilities over imagenet classes
+                inp = net.predict(inp) 
+                # Take average over the output features to save space
+                inp = np.mean(inp, axis=0)
+                print(inp.shape)
                 res = inp.flatten()
                 embed[cnt % 5000] = res
                 txt.write(urls[i] + " " + str(cnt))
@@ -86,7 +89,7 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
                 save = Path(save_path + str(i) + ".npy")
                 with open(save, "wb") as f:
                     np.save(f, embed)
-                embed = np.zeros((5000, 5000))
+                embed = np.zeros((5000, 512*7*7))
 
 
         except Exception as e:
@@ -96,7 +99,7 @@ def file_to_embeddings(section, dict_path, weight_path, train_path):
     save = Path(save_path + str(i) + ".npy")
     with open(save, "wb") as f:
       np.save(f, embed)
-      embed = np.zeros((5000, 5000))
+      embed = np.zeros((5000, 512*7*7))
 
 
 file_to_embeddings(4, dict_path, weight_path, train_path)

@@ -41,39 +41,44 @@ def hierarchical_clustering(embeddings, d=4, k=9):
 
 
 # Hardcode the saved embeddings.
-file_list = ['2982.npy', '5957.npy', '8947.npy', '11913.npy', '14871.npy', '15999.npy', '19026.npy', '22024.npy', '24980.npy', '27932.npy',
-'30922.npy', '31999.npy', '34924.npy', '37886.npy', '40937.npy', '43916.npy', '46884.npy', '47999.npy', '50916.npy', '53917.npy', '56945.npy',
-'59930.npy', '62918.npy', '63999.npy', '66982.npy', '70012.npy', '73028.npy', '76025.npy', '78946.npy', '79999.npy']
+#file_list = ['2982.npy', '5957.npy', '8947.npy', '11913.npy', '14871.npy', '15999.npy', '19026.npy', '22024.npy', '24980.npy', '27932.npy',
+#'30922.npy', '31999.npy', '34924.npy', '37886.npy', '40937.npy', '43916.npy', '46884.npy', '47999.npy', '50916.npy', '53917.npy', '56945.npy',
+#'59930.npy', '62918.npy', '63999.npy', '66982.npy', '70012.npy', '73028.npy', '76025.npy', '78946.npy', '79999.npy']
+#
 
+file_list = ['3069.npy', '6129.npy', '9201.npy', '12240.npy', '15272.npy', '15999.npy', '19118.npy', '22200.npy', '25245.npy', '28305.npy',
+'31398.npy', '31999.npy', '35010.npy', '38063.npy', '41239.npy', '44290.npy', '47333.npy', '47999.npy', '51003.npy', '54089.npy', '57194.npy',
+'60246.npy', '63304.npy', '63999.npy', '67064.npy', '70193.npy', '73325.npy', '76381.npy', '79403.npy', '79999.npy']
 arrs = [] 
 
 #This is where things can get memory heavy
 for i in range(len(file_list)):
   print(i)
-  if i < 18 or i > 23:
-    inp = np.load('embeddings2/' + file_list[i])
-  else:
-    inp = np.load('embeddings3/' + file_list[i])
+  inp = np.load('vgg_embeddings/' + file_list[i])
+  #if i < 18 or i > 23:
+  #  inp = np.load('embeddings2/' + file_list[i])
+  #else:
+  #  inp = np.load('embeddings3/' + file_list[i])
 
   if file_list[i] in ['15999.npy', '31999.npy', '47999.npy', '63999.npy', '79999.npy']:
     for j in range(inp.shape[0]):
       if np.sum(inp[j]) == 0:
         inp = inp[:j,:]
-        break
+        break 
   arrs.append(inp)
 
 data = np.concatenate(arrs, axis=0)
 print(data.shape)
-res = np.load('res.npy') #, ctrs = hierarchical_clustering(data, d=4, k=9)
+res, ctrs = hierarchical_clustering(data, d=4, k=9)
 print(res.shape)
-#np.save('res.npy', res)
+np.save('vgg_res.npy', res)
 url_map = dict()
 ct = 0
 
 id_to_res = dict()
 
 for k in range(5):
-  with open('correspondences' + str(k) + '.txt','r') as f:
+  with open('vgg_correspondences' + str(k) + '.txt','r') as f:
     urls = f.read().split(' ')
   
     for j in range(len(urls)-1):
@@ -114,7 +119,7 @@ for i in range(res.shape[0]):
     map_tokens_to_gifs[res[i]] = [inv_url_map[i]]
 
 print(map_tokens_to_gifs[6092])
-np.save('tks_to_gifs.npy', map_tokens_to_gifs)
+np.save('vgg_tks_to_gifs.npy', map_tokens_to_gifs)
 
 print('done')
 #cols = ['URL', 'CAPTION']
