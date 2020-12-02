@@ -6,7 +6,6 @@ import requests
 from PIL import Image, ImageSequence
 import numpy as np
 import math 
-from array2gif import write_gif
 
 if __name__ == "__main__":
     urls = [
