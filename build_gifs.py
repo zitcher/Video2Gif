@@ -9,7 +9,7 @@ import random
 import imageio
 
 out_path = "out.gif"
-dict_path = "tks_to_gifs.npy"
+dict_path = "res_tks_to_gifs.npy"
 tmp_path = "tmp.gif"
 
 def build_gif(tokens):

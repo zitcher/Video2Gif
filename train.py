@@ -18,13 +18,19 @@ basepath = '.'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
+def savelist(fname, my_list):
+    with open(fname, 'w') as f:
+        for item in my_list:
+            f.write("%s\n" % item)
+
 if __name__ == "__main__":
     print("device", device)
     print("loading gpt2 tokenizer")
     gpt2Tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
 
     print("loading dataset")
-    train_dataset = GPT2Dataset('./training.tsv', gpt2Tokenizer)
+    train_dataset = GPT2Dataset('./res_training.tsv', gpt2Tokenizer)
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     
     print("loading model")
@@ -41,7 +47,8 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), 0.0005)
     model = model.train()
     loss_fn = CrossEntropyLoss(ignore_index=-100)
-    epochs = 101
+    epochs = 51
+    all_losses = []
     for epoch in range(epochs):
         losses = []
         for batch in tqdm(train_loader):
@@ -59,9 +66,12 @@ if __name__ == "__main__":
             loss = loss_fn(logits.permute(0, 2, 1), labels)
             loss.backward()
             optimizer.step()
-            print("Loss", torch.exp(loss).item())
-            losses.append(torch.exp(loss).item())
+            losses.append(loss.item())
+            all_losses.append(loss.item())
+            print(loss.item())
         print("epoch", epoch, "perplexity:", np.mean(losses))
 
         if epoch % 5 == 0:
             torch.save(model.state_dict(), basepath + '/checkpoints/{}.cpt'.format(epoch))
+    
+    savelist('losses.txt', all_losses)
