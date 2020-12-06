@@ -83,10 +83,10 @@ if __name__ == "__main__":
     vocab_size = len(gpt2Tokenizer) + len(vid_vocab)
     model = GPT2LMHeadModel.from_pretrained('gpt2', return_dict=True)
     model.resize_token_embeddings(vocab_size)
-    model.load_state_dict(torch.load(basepath + '/checkpoints/{}.cpt'.format('50')))
+    model.load_state_dict(torch.load(basepath + '/checkpoints/{}.cpt'.format('25')))
 
     line = sentence_to_tokens(
-        "a cute cat plays with another cute cat", 
+        "a young woman swims in a pool", 
         model, 
         gpt2Tokenizer, 
         vid_vocab, 

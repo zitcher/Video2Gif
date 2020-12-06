@@ -10,6 +10,7 @@ from tqdm import tqdm, trange
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 from preprocess import GPT2Dataset
+import sys
 
 load = False
 loadepoch = 0
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     gpt2Tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
 
     print("loading dataset")
-    train_dataset = GPT2Dataset('./res_training.tsv', gpt2Tokenizer)
+    train_dataset = GPT2Dataset('./res_training.tsv', gpt2Tokenizer) # ./res_training.tsv
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     
     print("loading model")
@@ -47,7 +48,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), 0.0005)
     model = model.train()
     loss_fn = CrossEntropyLoss(ignore_index=-100)
-    epochs = 51
+    epochs = 101
     all_losses = []
     for epoch in range(epochs):
         losses = []
@@ -59,19 +60,17 @@ if __name__ == "__main__":
             out = model(
                 input_ids=input_ids,
                 attention_mask=mask,
-                labels=labels,
             )
             logits = out.logits
             optimizer.zero_grad()
-            loss = loss_fn(logits.permute(0, 2, 1), labels)
+            loss = loss_fn(logits.permute(0, 2, 1), labels[:,1:])
             loss.backward()
             optimizer.step()
             losses.append(loss.item())
             all_losses.append(loss.item())
-            print(loss.item())
-        print("epoch", epoch, "perplexity:", np.mean(losses))
+        print("epoch", epoch, "perplexity:", np.mean(losses), file=sys.stderr)
 
-        if epoch % 5 == 0:
+        if epoch % 25 == 0:
             torch.save(model.state_dict(), basepath + '/checkpoints/{}.cpt'.format(epoch))
     
     savelist('losses.txt', all_losses)

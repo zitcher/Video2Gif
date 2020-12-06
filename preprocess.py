@@ -80,11 +80,11 @@ class GPT2Dataset(Dataset):
                 self.vectorize_gif(linesplit[1].strip())
             ]
             
-            vector = linesplit[0] + linesplit[1] + [tokenizer.eos_token_id]
+            vector = linesplit[0] + linesplit[1]
 
             # print(line, vector, self.decode(vector, tokenizer))
             self.input_ids.append(torch.tensor(vector))
-            self.labels.append(torch.tensor([-100] *  len(linesplit[0]) + linesplit[1] + [tokenizer.eos_token_id]))
+            self.labels.append(torch.tensor(linesplit[0] + linesplit[1] + [tokenizer.eos_token_id])) # [-100] *  len(linesplit[0]) + linesplit[1] + [tokenizer.eos_token_id]
             self.mask.append(torch.tensor([1] * len(vector)))
 
         self.input_ids = pad_sequence(self.input_ids, batch_first=True, padding_value=0)
