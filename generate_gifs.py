@@ -86,7 +86,7 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(basepath + '/checkpoints/{}.cpt'.format('25')))
 
     line = sentence_to_tokens(
-        "a young woman swims in a pool", 
+        "a baseball player runs", 
         model, 
         gpt2Tokenizer, 
         vid_vocab, 

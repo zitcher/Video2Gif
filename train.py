@@ -31,7 +31,7 @@ if __name__ == "__main__":
     gpt2Tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
 
     print("loading dataset")
-    train_dataset = GPT2Dataset('./res_training.tsv', gpt2Tokenizer) # ./res_training.tsv
+    train_dataset = GPT2Dataset('./res_training_final.tsv', gpt2Tokenizer) # ./res_training.tsv
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
     
     print("loading model")
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), 0.0005)
     model = model.train()
     loss_fn = CrossEntropyLoss(ignore_index=-100)
-    epochs = 101
+    epochs = 26
     all_losses = []
     for epoch in range(epochs):
         losses = []
