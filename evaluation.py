@@ -119,9 +119,50 @@ def GPT2Eval():
 
     return correct / total
 
+def output_predictions():
+    val_file = './res_training_val.tsv'
+    preds = ''
+
+    print("device", device)
+    print("loading gpt2 tokenizer")
+    gpt2Tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
+
+    print("loading vid vocab")
+    vid_vocab = None
+    vocab_vid = None
+    if os.path.exists("./data/vid_vocab.pkl") and os.path.exists("./data/vocab_vid.pkl"):
+        vid_vocab = load_obj("vid_vocab")
+        vocab_vid = load_obj("vocab_vid")
+    else:
+        print("failed to find vocab files")
+        assert False
+
+    val_dataset, val_vocab = get_dataset(val_file)
+    vocab_size = len(gpt2Tokenizer) + len(vid_vocab)
+    model = GPT2LMHeadModel.from_pretrained('gpt2', return_dict=True)
+    model.resize_token_embeddings(vocab_size)
+    model.load_state_dict(torch.load('./checkpoints/{}.cpt'.format('25')))
+    for sentence, vid in tqdm(val_dataset):
+        model = model.to(device)
+        model_in = torch.tensor([gpt2Tokenizer.encode(sentence.strip()) + [vid_vocab['[SEP]']]]).to(device)
+
+        out = model(input_ids=model_in)
+        vidId = torch.argmax(out.logits, dim=2)[0, -1].item()
+
+        if vid not in vid_vocab:
+            continue
+
+        if vidId not in vocab_vid:
+            continue
+        else:
+            preds += sentence + ' [SEP] ' + vocab_vid[vidId] + '\n'
+    
+    with open("gpt2_val_pred.txt", "wt") as f:
+        f.write(preds)
 
 if __name__ == "__main__":
     # baseline = NNEval()
-    model = GPT2Eval()
+    # model = GPT2Eval()
+    output_predictions()
 
     # print("model", model, "baseline", baseline)
